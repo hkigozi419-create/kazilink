@@ -1,0 +1,135 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>KaziLink — Real MVP</title><link rel="manifest" href="/manifest.webmanifest">
+<style>
+:root{--bg:#f5f7fb;--card:#fff;--ink:#172033;--muted:#64748b;--line:#e2e8f0;--brand:#0f766e;--brand2:#115e59;--danger:#b91c1c}
+*{box-sizing:border-box}body{margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;background:var(--bg);color:var(--ink)}
+header{background:linear-gradient(135deg,#0f766e,#134e4a);color:white;padding:20px 16px;position:sticky;top:0;z-index:3}
+header .row{max-width:1000px;margin:auto;display:flex;align-items:center;justify-content:space-between;gap:10px}
+.logo{font-size:24px;font-weight:800}.tag{opacity:.9;font-size:12px}
+main{max-width:1000px;margin:0 auto;padding:18px 14px 80px}.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:14px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:16px;box-shadow:0 5px 18px #0f172a0b}
+button,input,textarea,select{font:inherit}button{border:0;border-radius:11px;padding:11px 14px;background:var(--brand);color:white;font-weight:700;cursor:pointer}
+button.secondary{background:#e2e8f0;color:#172033}.danger{background:var(--danger)}button:disabled{opacity:.5}
+input,textarea,select{width:100%;padding:11px;border:1px solid #cbd5e1;border-radius:10px;background:white}textarea{min-height:90px;resize:vertical}
+label{font-size:13px;font-weight:700;display:block;margin:10px 0 5px}.muted{color:var(--muted)}.small{font-size:12px}.pill{display:inline-block;padding:4px 8px;border-radius:99px;background:#ecfeff;color:#155e75;font-size:12px;font-weight:700}
+nav{position:fixed;bottom:0;left:0;right:0;background:white;border-top:1px solid var(--line);display:flex;justify-content:center;gap:4px;z-index:5}
+nav button{border-radius:0;background:white;color:#475569;flex:1;max-width:170px;font-size:12px}nav button.active{color:var(--brand)}
+h1,h2,h3{margin-top:0}.hero{padding:22px 4px}.hero h1{font-size:32px;margin-bottom:8px}.actions{display:flex;flex-wrap:wrap;gap:8px}.worker{display:flex;gap:12px;align-items:flex-start}.avatar{width:48px;height:48px;border-radius:50%;background:#ccfbf1;display:grid;place-items:center;font-weight:800;color:#115e59;flex:none}.star{letter-spacing:1px}.hidden{display:none}.toast{position:fixed;right:14px;bottom:70px;background:#172033;color:#fff;padding:12px 14px;border-radius:10px;z-index:10;max-width:320px}
+table{width:100%;border-collapse:collapse}td,th{padding:8px;border-bottom:1px solid var(--line);text-align:left;font-size:13px}
+</style>
+  <script src="supabase-config.js"></script>
+  <script src="kazilink-live.js"></script>
+</head>
+<body>
+<div id="supabase-connection-status" style="position:fixed;top:8px;right:8px;z-index:9999;padding:6px 9px;border-radius:999px;background:#eee;color:#333;font:12px system-ui;opacity:.9">KaziLink</div>
+<header><div class="row"><div><div class="logo">KaziLink</div><div class="tag">Find the right person for the job.</div></div><div id="userBox"></div></div></header>
+<main id="app"></main>
+<nav id="nav" class="hidden"></nav>
+<div id="toast" class="hidden"></div>
+<script>
+if ("serviceWorker" in navigator) navigator.serviceWorker.register("/sw.js").catch(()=>{});
+const $=s=>document.querySelector(s), app=$("#app");
+let token=localStorage.getItem("kazilink_token")||"", me=null;
+
+async function api(path, opts={}){
+  opts.headers=Object.assign({"Content-Type":"application/json"},opts.headers||{});
+  if(token) opts.headers.Authorization="Bearer "+token;
+  const r=await fetch(path,opts); let d={}; try{d=await r.json()}catch{}
+  if(!r.ok) throw new Error(d.error||"Request failed");
+  return d;
+}
+function toast(msg){const t=$("#toast");t.textContent=msg;t.classList.remove("hidden");setTimeout(()=>t.classList.add("hidden"),2600)}
+function esc(x){return String(x??"").replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[m]))}
+function initials(n){return esc(String(n||"?").split(" ").map(x=>x[0]).slice(0,2).join("").toUpperCase())}
+function nav(){
+  if(!me){$("#nav").classList.add("hidden");return}
+  const items=me.role==="worker"?[["home","Home"],["jobs","Find Jobs"],["apps","Applications"],["profile","Profile"]]
+             :me.role==="admin"?[["admin","Admin"]]:[["home","Home"],["jobs","Jobs"],["post","Post Job"],["profile","Profile"]];
+  $("#nav").innerHTML=items.map(([id,t])=>`<button onclick="go('${id}')">${t}</button>`).join("")+
+    `<button onclick="logout()">Log out</button>`;
+  $("#nav").classList.remove("hidden");
+}
+function setUser(){ $("#userBox").innerHTML=me?`<span class="small">${esc(me.name)} · ${me.role}</span>`:"";nav()}
+async function boot(){
+ try{if(token){me=(await api("/api/me")).user}else throw 0}catch{token="";localStorage.removeItem("kazilink_token");me=null}
+ setUser(); go(me?(me.role==="admin"?"admin":"home"):"welcome");
+}
+function go(page){
+ nav(); document.querySelectorAll("nav button").forEach(b=>b.classList.remove("active"));
+ if(page==="welcome") return welcome();
+ if(!me) return login();
+ if(page==="home") return me.role==="worker"?workerHome():customerHome();
+ if(page==="jobs") return jobs();
+ if(page==="post") return postJob();
+ if(page==="apps") return applications();
+ if(page==="profile") return profile();
+ if(page==="admin") return admin();
+}
+function welcome(){app.innerHTML=`<section class="hero"><div class="card">
+<h1>Work. Skills. Opportunity.</h1><p class="muted">KaziLink connects customers with trusted skilled workers in Uganda.</p>
+<div class="actions"><button onclick="register('customer')">I need a worker</button><button onclick="register('worker')">I am a skilled worker</button><button class="secondary" onclick="login()">Log in</button></div>
+</div></section><div class="grid">
+${["Aluminium Fabrication","Vehicle Mechanics","Electrical","Construction","Plumbing"].map(x=>`<div class="card"><h3>${x}</h3><p class="muted small">Find skilled local professionals and contact them directly.</p></div>`).join("")}</div>`}
+function login(){
+ app.innerHTML=`<div class="card"><h2>Log in</h2><label>Phone or email</label><input id="ident"><label>Password</label><input id="pw" type="password"><div class="actions" style="margin-top:12px"><button onclick="doLogin()">Log in</button><button class="secondary" onclick="welcome()">Back</button></div><p class="muted small">Demo worker password: Demo123! · Admin: admin@kazilink.local / KaziLink123!</p></div>`;
+}
+async function doLogin(){try{const d=await api("/api/login",{method:"POST",body:JSON.stringify({identifier:$("#ident").value,password:$("#pw").value})});token=d.token;me=d.user;localStorage.setItem("kazilink_token",token);setUser();go(me.role==="admin"?"admin":"home")}catch(e){toast(e.message)}}
+function register(role){
+ app.innerHTML=`<div class="card"><h2>Create ${role} account</h2>
+<label>Name</label><input id="name"><label>Phone</label><input id="phone" placeholder="+256..."><label>Email (optional)</label><input id="email">
+<label>Location</label><input id="location" placeholder="Kampala / Wakiso / ..."><label>Password</label><input id="pw" type="password" placeholder="6+ characters">
+${role==="worker"?`<label>Trade</label><select id="trade"><option>Aluminium Fabricator</option><option>Vehicle Mechanic</option><option>Electrician</option><option>Construction</option><option>Plumber</option><option>Welder</option><option>Carpenter</option></select><label>Years of experience</label><input id="exp" type="number" min="0"><label>Skills</label><input id="skills" placeholder="Windows, doors, installation"><label>Description</label><textarea id="desc"></textarea>`:""}
+<div class="actions" style="margin-top:12px"><button onclick="doRegister('${role}')">Create account</button><button class="secondary" onclick="welcome()">Back</button></div></div>`;
+}
+async function doRegister(role){
+ const d={name:$("#name").value,phone:$("#phone").value,email:$("#email").value,location:$("#location").value,password:$("#pw").value,role};
+ if(role==="worker")Object.assign(d,{trade:$("#trade").value,experience:$("#exp").value,skills:$("#skills").value,description:$("#desc").value});
+ try{const r=await api("/api/register",{method:"POST",body:JSON.stringify(d)});token=r.token;me=r.user;localStorage.setItem("kazilink_token",token);setUser();go("home");toast("Account created")}catch(e){toast(e.message)}
+}
+async function customerHome(){
+ const d=await api("/api/workers"); app.innerHTML=`<section class="hero"><h2>Find a skilled worker</h2>
+<div class="card"><div class="grid"><div><label>Trade</label><select id="filter"><option value="">All trades</option><option>Aluminium</option><option>Mechanic</option><option>Electrician</option><option>Construction</option><option>Plumber</option></select></div><div><label>Location</label><input id="loc" placeholder="Kampala"></div></div><button style="margin-top:10px" onclick="searchWorkers()">Search</button></div>
+<div id="workers" class="grid" style="margin-top:14px">${d.workers.map(workerCard).join("")}</div></section>`}
+function workerCard(w){return `<div class="card worker"><div class="avatar">${initials(w.name)}</div><div style="flex:1"><h3>${esc(w.name)} ${w.verified?'<span class="pill">Verified</span>':''}</h3><div><b>${esc(w.trade)}</b> · ${w.experience} yrs</div><div class="muted small">${esc(w.location)} · <span class="star">★ ${Number(w.rating||0).toFixed(1)}</span></div><p class="small">${esc(w.skills)}</p><div class="actions"><button onclick="viewWorker(${w.user_id})">View</button><a href="https://wa.me/${String(w.phone).replace(/[^0-9]/g,'')}" target="_blank"><button>WhatsApp</button></a></div></div></div>`}
+async function searchWorkers(){try{const trade=$("#filter").value,location=$("#loc").value;if(window.KaziLinkLive&&window.KaziLinkLive.enabled){const ws=await window.KaziLinkLive.workers(trade,location);$("#workers").innerHTML=ws.map(workerCard).join("")||'<div class="card">No workers found.</div>';return;}const q=new URLSearchParams({trade,location});const d=await api("/api/workers?"+q);$("#workers").innerHTML=d.workers.map(workerCard).join("")||'<div class="card">No workers found.</div>'}catch(e){toast("Live worker search unavailable; using app data");const q=new URLSearchParams({trade:$("#filter").value,location:$("#loc").value});const d=await api("/api/workers?"+q);$("#workers").innerHTML=d.workers.map(workerCard).join("")||'<div class="card">No workers found.</div>'}}
+async function viewWorker(id){
+ const d=await api("/api/workers/"+id),w=d.worker;
+ app.innerHTML=`<div class="card"><div class="worker"><div class="avatar">${initials(w.name)}</div><div><h2>${esc(w.name)} ${w.verified?'<span class="pill">Verified</span>':''}</h2><b>${esc(w.trade)}</b><p class="muted">${esc(w.location)} · ${w.experience} years · ★ ${Number(w.rating||0).toFixed(1)}</p></div></div>
+<p>${esc(w.description)}</p><p><b>Skills:</b> ${esc(w.skills)}</p><div class="actions"><a href="https://wa.me/${String(w.phone).replace(/[^0-9]/g,'')}" target="_blank"><button>WhatsApp</button></a><button class="secondary" onclick="go('home')">Back</button></div></div>
+<div class="card"><h3>Reviews</h3>${d.reviews.map(r=>`<p><b>${esc(r.customer_name)}</b> · ★${r.rating}<br><span class="muted">${esc(r.comment)}</span></p>`).join("")||'<p class="muted">No reviews yet.</p>'}</div>`;
+}
+async function postJob(){app.innerHTML=`<div class="card"><h2>Post a job</h2><label>Category</label><select id="cat"><option>Aluminium Fabrication</option><option>Vehicle Mechanic</option><option>Electrical</option><option>Construction</option><option>Plumbing</option><option>Other</option></select>
+<label>Job title</label><input id="title" placeholder="e.g. Install aluminium windows"><label>Description</label><textarea id="desc"></textarea><label>Location</label><input id="location" placeholder="Kampala"><label>Budget (optional)</label><input id="budget" placeholder="UGX 300,000"><label>Preferred date (optional)</label><input id="date" type="date"><button style="margin-top:12px" onclick="createJob()">Publish job</button></div>`}
+async function createJob(){try{await api("/api/jobs",{method:"POST",body:JSON.stringify({category:$("#cat").value,title:$("#title").value,description:$("#desc").value,location:$("#location").value,budget:$("#budget").value,job_date:$("#date").value})});toast("Job published");go("jobs")}catch(e){toast(e.message)}}
+async function jobs(){
+ const d=await api("/api/jobs"); app.innerHTML=`<div class="hero"><h2>${me.role==="worker"?"Jobs for you":"Open jobs"}</h2></div><div class="grid">${d.jobs.map(j=>`<div class="card"><span class="pill">${esc(j.category)}</span><h3>${esc(j.title)}</h3><p>${esc(j.description)}</p><p class="muted small">📍 ${esc(j.location)} · ${esc(j.budget||"Budget not specified")} · ${esc(j.job_date||"Flexible date")}</p>${me.role==="worker"?`<button onclick="applyJob(${j.id})">Apply</button>`:""}</div>`).join("")||'<div class="card">No open jobs yet.</div>'}</div>`}
+async function applyJob(id){const msg=prompt("Short message to the customer:","I am interested in this job and can start soon.");if(msg===null)return;try{await api("/api/jobs/"+id+"/apply",{method:"POST",body:JSON.stringify({message:msg})});toast("Application sent")}catch(e){toast(e.message)}}
+async function applications(){
+ const d=await api("/api/applications");app.innerHTML=`<div class="hero"><h2>Applications</h2></div><div class="card"><table><tr><th>Job</th><th>Other party</th><th>Status</th></tr>${d.applications.map(a=>`<tr><td>${esc(a.title)}</td><td>${esc(a.customer_name||a.worker_name||"")}</td><td>${esc(a.status)}</td></tr>`).join("")||'<tr><td colspan="3">No applications yet.</td></tr>'}</table></div>`}
+function profile(){app.innerHTML=`<div class="card"><h2>My account</h2><p><b>${esc(me.name)}</b></p><p class="muted">${esc(me.phone)} · ${esc(me.location||"")}</p><p>Account type: <span class="pill">${me.role}</span></p>${me.role==="worker"?'<p>Worker profiles can be upgraded with verification and featured placement in the next release.</p>':''}</div>`}
+async function workerHome(){const d=await api("/api/workers?location="+encodeURIComponent(me.location||""));app.innerHTML=`<section class="hero"><h2>Welcome, ${esc(me.name)}</h2><p class="muted">Find nearby jobs and build your reputation.</p><div class="actions"><button onclick="go('jobs')">Find jobs</button><button class="secondary" onclick="go('apps')">My applications</button></div></section><div class="card"><h3>Workers marketplace</h3><p class="muted small">Your profile is live. Verified workers will be ranked higher for customers.</p></div>`}
+async function admin(){
+ const s=await api("/api/admin/stats"),w=await api("/api/workers");app.innerHTML=`<div class="hero"><h2>Admin dashboard</h2></div><div class="grid">${Object.entries(s).map(([k,v])=>`<div class="card"><div class="muted small">${k}</div><h2>${v}</h2></div>`).join("")}</div><div class="card" style="margin-top:14px"><h3>Worker verification</h3>${w.workers.map(x=>`<div style="padding:10px 0;border-bottom:1px solid #e2e8f0"><b>${esc(x.name)}</b> · ${esc(x.trade)} · ${x.verified?"Verified":"Not verified"} <button onclick="verify(${x.user_id},${x.verified?0:1})">${x.verified?"Unverify":"Verify"}</button></div>`).join("")}</div>`}
+async function verify(id,v){try{await api("/api/admin/verify",{method:"POST",body:JSON.stringify({worker_id:id,verified:!!v})});toast("Updated");admin()}catch(e){toast(e.message)}}
+async function logout(){try{await api("/api/logout",{method:"POST"})}catch{}token="";me=null;localStorage.removeItem("kazilink_token");setUser();welcome()}
+boot();
+</script>
+<script>
+(function(){
+  const el=document.getElementById('supabase-connection-status');
+  const c=window.KAZILINK_SUPABASE;
+  if(!el || !c) return;
+  fetch(c.url + "/rest/v1/worker_profiles?select=id&limit=1", {
+    headers: { apikey: c.publishableKey }
+  }).then(r=>{
+    if(r.ok){ el.textContent="KaziLink • Supabase connected"; el.style.background="#dff5df"; }
+    else { el.textContent="KaziLink • Setup needed"; }
+  }).catch(()=>{ el.textContent="KaziLink • Offline"; });
+})();
+</script>
+</body>
+</html>
