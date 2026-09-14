@@ -1,0 +1,14 @@
+services:
+  - type: web
+    name: kazilink
+    runtime: docker
+    plan: free
+    envVars:
+      - key: KAZILINK_HOST
+        value: 0.0.0.0
+      - key: KAZILINK_PORT
+        value: 8080
+      - key: KAZILINK_ADMIN_EMAIL
+        sync: false
+      - key: KAZILINK_ADMIN_PASSWORD
+        sync: false
