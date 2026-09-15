@@ -64,7 +64,6 @@ function go(page){
  if(!me) return login();
  if(page==="home") return me.role==="worker"?workerHome():customerHome();
  if(page==="jobs") return jobs();
-();
  if(page==="apps") return applications();
  if(page==="profile") return profile();
  if(page==="admin") return admin();
