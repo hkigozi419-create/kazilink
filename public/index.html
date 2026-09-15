@@ -1,4 +1,4 @@
-<!doctype html>
+ if(page==="post") return postJob<!doctype html>
 <html lang="en">
 <head>
 <meta charset="utf-8">
@@ -64,7 +64,7 @@ function go(page){
  if(!me) return login();
  if(page==="home") return me.role==="worker"?workerHome():customerHome();
  if(page==="jobs") return jobs();
- if(page==="post") return postJob();
+();
  if(page==="apps") return applications();
  if(page==="profile") return profile();
  if(page==="admin") return admin();
@@ -86,9 +86,38 @@ ${role==="worker"?`<label>Trade</label><select id="trade"><option>Aluminium Fabr
 <div class="actions" style="margin-top:12px"><button onclick="doRegister('${role}')">Create account</button><button class="secondary" onclick="welcome()">Back</button></div></div>`;
 }
 async function doRegister(role){
- const d={name:$("#name").value,phone:$("#phone").value,email:$("#email").value,location:$("#location").value,password:$("#pw").value,role};
- if(role==="worker")Object.assign(d,{trade:$("#trade").value,experience:$("#exp").value,skills:$("#skills").value,description:$("#desc").value});
- try{const r=await api("/api/register",{method:"POST",body:JSON.stringify(d)});token=r.token;me=r.user;localStorage.setItem("kazilink_token",token);setUser();go("home");toast("Account created")}catch(e){toast(e.message)}
+  const d={
+    name:$("#name").value,
+    phone:$("#phone").value,
+    email:$("#email").value,
+    location:$("#location").value,
+    password:$("#pw").value,
+    role
+  };
+
+  if(role==="worker"){
+    Object.assign(d,{
+      trade:$("#trade").value,
+      experience:$("#exp").value,
+      skills:$("#skills").value,
+      description:$("#desc").value
+    });
+  }
+
+  try{
+    const r=await api("/api/register",{
+      method:"POST",
+      body:JSON.stringify(d)
+    });
+    token=r.token;
+    me=r.user;
+    localStorage.setItem("kazilink_token",token);
+    setUser();
+    go("home");
+    toast("Account created");
+  }catch(e){
+    alert(e.message);
+  }
 }
 async function customerHome(){
  const d=await api("/api/workers"); app.innerHTML=`<section class="hero"><h2>Find a skilled worker</h2>
