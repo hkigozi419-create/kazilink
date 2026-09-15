@@ -202,7 +202,7 @@ class Handler(BaseHTTPRequestHandler):
                 if role=="worker":
                     trade=str(data.get("trade","")).strip()
                     if not trade:self.send_json({"error":"Trade is required for workers"},400);return
-                    sb_request("POST","worker_profiles",{"select":"*"},{"user_id":u["id"],"trade":trade,"skills":str(data.get("skills","")),"experience":int(data.get("experience",0) or 0),"description":str(data.get("description","")),"photo_url":str(data.get("photo_url",""))})
+                    sb_request("POST","worker_profiles",{"select":"*"},{"user_id":u["id"],"trade":trade,"skills":str(data.get("skills","")),"experience":int(data.get("experience",0) or 0),"description":str(data.get("description",""))})
                 token=secrets.token_urlsafe(32); SESSIONS[token]=u["id"]; self.send_json({"token":token,"user":public_user(u)},201);return
             if p.path=="/api/login":
                 identifier=str(data.get("identifier","")).strip(); password=str(data.get("password",""))
