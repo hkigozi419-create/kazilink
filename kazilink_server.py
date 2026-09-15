@@ -218,12 +218,12 @@ class Handler(BaseHTTPRequestHandler):
                 required=["category","title","description","location"]
                 if any(not str(data.get(k,"")).strip() for k in required):self.send_json({"error":"Category, title, description and location are required"},400);return
                 budget_raw = str(data.get("budget","")).strip()
-budget = None
-if budget_raw:
-    digits = "".join(ch for ch in budget_raw if ch.isdigit())
-    budget = int(digits) if digits else None
-job_date = str(data.get("job_date","")).strip() or None
-j=sb_request("POST","jobs",{"select":"*"},{"customer_id":u["id"],"category":data["category"],"title":data["title"],"description":data["description"],"location":data["location"],"budget":budget,"job_date":job_date,"status":"open","created_at":now()})[0]
+                budget = None
+                if budget_raw:
+                digits = "".join(ch for ch in budget_raw if ch.isdigit())
+                 budget = int(digits) if digits else None
+                job_date = str(data.get("job_date","")).strip() or None
+                j=sb_request("POST","jobs",{"select":"*"},{"customer_id":u["id"],"category":data["category"],"title":data["title"],"description":data["description"],"location":data["location"],"budget":budget,"job_date":job_date,"status":"open","created_at":now()})[0]
                 self.send_json({"job_id":j["id"]},201);return
             m=re.match(r"^/api/jobs/(\d+)/apply$",p.path)
             if m:
