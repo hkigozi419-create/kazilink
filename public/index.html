@@ -71,7 +71,7 @@ function go(page){
 }
 function welcome(){app.innerHTML=`<section class="hero"><div class="card">
 <h1>Work. Skills. Opportunity.</h1><p class="muted">KaziLink connects customers with trusted skilled workers in Uganda.</p>
-<div class="actions"><button onclick="register('customer')">I need a worker</button><button onclick="register('worker')">I am a skilled worker</button><button class="secondary" onclick="login()">Log in</button></div>
+<div class="actions"><button onclick="customerHome()">I need a worker</button><button onclick="register('worker')">I am a skilled worker</button><button class="secondary" onclick="login()">Log in</button></div>
 </div></section><div class="grid">
 ${["Aluminium Fabrication","Vehicle Mechanics","Electrical","Construction","Plumbing"].map(x=>`<div class="card"><h3>${x}</h3><p class="muted small">Find skilled local professionals and contact them directly.</p></div>`).join("")}</div>`}
 function login(){
